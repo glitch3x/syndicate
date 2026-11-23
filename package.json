@@ -1,0 +1,20 @@
+{
+  "name": "the-syndicate",
+  "version": "1.0.0",
+  "description": "The Syndicate - Cyberpunk Arcade Shooting Game",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "game",
+    "shooter",
+    "cyberpunk",
+    "syndicate",
+    "canvas",
+    "html5"
+  ],
+  "author": "",
+  "license": "MIT"
+}
