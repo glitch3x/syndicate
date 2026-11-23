@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>THE SYNDICATE // CYBERPUNK SHOOTER</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas & CRT Screen Effects -->
+  <canvas id="game-canvas"></canvas>
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+
+  <!-- Announcement Banner -->
+  <div id="announcement-banner">SECTOR 1: PERIMETER GRID</div>
+
+  <!-- IN-GAME HUD -->
+  <div id="hud" style="display: none;">
+    <!-- Top Bar -->
+    <div class="hud-top">
+      <!-- Player Frame -->
+      <div class="player-frame">
+        <div class="avatar-wrapper">
+          <img id="hud-avatar-img" src="assets/badge_rx7.png" alt="Operative" class="avatar-img">
+          <div class="avatar-scanline"></div>
+        </div>
+        <div class="player-meters">
+          <div class="player-label">
+            <span id="hud-player-name">UNIT RX-7</span>
+            <span id="hp-text">100 / 100</span>
+          </div>
+          <div class="meter-bar" title="Armor / Health">
+            <div id="hp-fill"></div>
+          </div>
+          <div class="meter-bar" title="Energy Shield">
+            <div id="shield-fill"></div>
+          </div>
+          <div class="emp-container">
+            <span>EMP [Q/E]</span>
+            <div class="emp-bar">
+              <div id="emp-cooldown-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boss Bar (Appears in Sector 3) -->
+      <div id="boss-hud-bar">
+        <div class="boss-title">⚠️ CORE-TITAN EX-9 // CORPORATE OVERSEER ⚠️</div>
+        <div class="boss-bar">
+          <div id="boss-hp-fill"></div>
+        </div>
+      </div>
+
+      <!-- Radar & Score -->
+      <div class="hud-right">
+        <div class="radar-box">
+          <canvas id="radar-canvas" width="110" height="110"></canvas>
+        </div>
+        <div class="score-panel">
+          <div class="score-title">SCORE</div>
+          <div id="hud-score">0</div>
+          <div id="hud-combo">COMBO: x1</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="hud-bottom">
+      <div class="weapon-dock">
+        <div class="wep-slot active" onclick="if(window.syndicateGame && window.syndicateGame.player) window.syndicateGame.player.activeWeaponIndex = 0;">
+          <span class="wep-key">[1]</span>
+          <span class="wep-name">PULSE</span>
+          <span class="wep-ammo">INF</span>
+        </div>
+        <div class="wep-slot" onclick="if(window.syndicateGame && window.syndicateGame.player) window.syndicateGame.player.activeWeaponIndex = 1;">
+          <span class="wep-key">[2]</span>
+          <span class="wep-name">SCATTER</span>
+          <span class="wep-ammo">0</span>
+        </div>
+        <div class="wep-slot" onclick="if(window.syndicateGame && window.syndicateGame.player) window.syndicateGame.player.activeWeaponIndex = 2;">
+          <span class="wep-key">[3]</span>
+          <span class="wep-name">RAILGUN</span>
+          <span class="wep-ammo">0</span>
+        </div>
+      </div>
+
+      <div class="hud-controls-hint">
+        WASD: Move | MOUSE: Aim/Shoot | V: Switch 2D/Gun View | SPACE: Dash | Q/E: EMP
+      </div>
+
+      <div style="display: flex; gap: 8px; pointer-events: auto;">
+        <button id="view-toggle-btn" class="cyber-btn cyber-btn-secondary" style="padding: 6px 14px; font-size: 11px;" onclick="
+          if(window.syndicateGame) window.syndicateGame.toggleViewMode();
+        ">📷 2D SURVIVOR [V]</button>
+        <button id="mute-btn" class="cyber-btn cyber-btn-secondary" style="padding: 6px 14px; font-size: 11px;" onclick="
+          if(window.gameAudio) {
+            const m = window.gameAudio.toggleMute();
+            this.textContent = m ? '🔇 SOUND OFF' : '🔊 SOUND ON';
+          }
+        ">🔊 SOUND ON</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Touch Controls (Mobile) -->
+  <div id="touch-controls">
+    <div id="touch-joystick-zone">
+      <div id="touch-joystick-knob"></div>
+    </div>
+    <div class="touch-actions">
+      <div class="touch-btn-row">
+        <div class="touch-btn" id="touch-btn-weapon">WEP</div>
+        <div class="touch-btn" id="touch-btn-emp">EMP</div>
+      </div>
+      <div class="touch-btn-row">
+        <div class="touch-btn" id="touch-btn-dash">DASH</div>
+        <div class="touch-btn" id="touch-btn-fire" style="border-color: #00f3ff; color: #00f3ff;">FIRE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TITLE SCREEN OVERLAY -->
+  <div id="title-screen" class="screen-overlay">
+    <div class="title-card">
+      <div class="title-logo-container">
+        <img src="assets/syndicate_badge.png" alt="Syndicate Logo" class="title-logo-badge">
+        <div>
+          <h1 class="main-title">THE SYNDICATE</h1>
+          <div class="main-subtitle">THE SYSTEM IS NOT YOUR FRIEND. A REBELLION.</div>
+        </div>
+      </div>
+
+      <div class="briefing-box">
+        Megacorporations have locked down Sector 9 with assault mechs and hunter drones. Choose your <strong>2D Syndicate Operative</strong>, break through the corporate security grid, and reach <strong>The Syndicate</strong> in the rebellion.
+      </div>
+
+      <!-- 2D Character Selector -->
+      <div class="character-select-title">SELECT 2D REBELLION OPERATIVE:</div>
+      <div class="character-selector">
+        <div class="char-card active" data-char="rx7" onclick="window.syndicateGame.selectCharacter('rx7');">
+          <div class="char-badge-frame">
+            <img src="assets/badge_rx7.png" alt="RX-7" class="char-badge-img">
+          </div>
+          <div class="char-info">
+            <div class="char-name">UNIT RX-7</div>
+            <div class="char-tagline">THE RENEGADE CYBORG</div>
+            <div class="char-perk">⚡ Balanced & Fast Railgun Aim</div>
+          </div>
+        </div>
+
+        <div class="char-card" data-char="nova" onclick="window.syndicateGame.selectCharacter('nova');">
+          <div class="char-badge-frame">
+            <img src="assets/badge_nova.png" alt="Nova" class="char-badge-img">
+          </div>
+          <div class="char-info">
+            <div class="char-name">VALKYRIE NOVA</div>
+            <div class="char-tagline">NEURAL VANGUARD</div>
+            <div class="char-perk">🛡️ Heavy Shield & Fast EMP Uplink</div>
+          </div>
+        </div>
+
+        <div class="char-card" data-char="reaper" onclick="window.syndicateGame.selectCharacter('reaper');">
+          <div class="char-badge-frame">
+            <img src="assets/badge_reaper.png" alt="Reaper" class="char-badge-img">
+          </div>
+          <div class="char-info">
+            <div class="char-name">REAPER-9</div>
+            <div class="char-tagline">SKULL ASSASSIN</div>
+            <div class="char-perk">💀 Max Armor & Heavy Impact Blasts</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-guide-grid">
+        <div class="guide-pill">
+          <span class="guide-key">W A S D</span>
+          <span>Tactical Movement</span>
+        </div>
+        <div class="guide-pill">
+          <span class="guide-key">MOUSE 1</span>
+          <span>Aim & Discharge</span>
+        </div>
+        <div class="guide-pill">
+          <span class="guide-key">SPACE / R-CLICK</span>
+          <span>Cyber-Dash (Invuln)</span>
+        </div>
+        <div class="guide-pill">
+          <span class="guide-key">Q or E</span>
+          <span>EMP Bullet-Clear</span>
+        </div>
+        <div class="guide-pill">
+          <span class="guide-key">V</span>
+          <span>Switch 2D/Gun View</span>
+        </div>
+        <div class="guide-pill">
+          <span class="guide-key">1 / 2 / 3</span>
+          <span>Switch Arsenal</span>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="cyber-btn cyber-btn-primary" onclick="window.syndicateGame.startMission(false);">INFILTRATE SYSTEM ➔</button>
+        <button class="cyber-btn cyber-btn-secondary" onclick="document.getElementById('dossier-modal').style.display = 'flex';">SYNDICATE DOSSIER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE MODAL -->
+  <div id="pause-modal" class="screen-overlay" style="display: none;">
+    <div class="title-card" style="max-width: 420px;">
+      <h2 class="main-title" style="font-size: 26px;">MISSION PAUSED</h2>
+      <div class="main-subtitle" style="margin-bottom: 20px;">SYSTEM MONITORING HALTED</div>
+      <div class="btn-group" style="flex-direction: column;">
+        <button class="cyber-btn cyber-btn-primary" onclick="window.syndicateGame.resumeGame();">RESUME COMBAT</button>
+        <button class="cyber-btn cyber-btn-secondary" onclick="window.syndicateGame.startMission(false);">RESTART SECTOR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div id="game-over-screen" class="screen-overlay" style="display: none;">
+    <div class="title-card" style="border-color: var(--neon-red); box-shadow: 0 0 25px rgba(255, 0, 85, 0.4);">
+      <h2 class="main-title" style="color: var(--neon-red); font-size: 32px;">NEURAL LINK TERMINATED</h2>
+      <div class="main-subtitle" style="color: #cbd5e0;">THE SYSTEM RECLAIMED YOUR HARDWARE</div>
+
+      <div class="stats-grid" style="margin: 20px auto;">
+        <div class="stat-card">
+          <div class="stat-label">FINAL SCORE</div>
+          <div class="stat-val" id="final-score">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ENEMIES PURGED</div>
+          <div class="stat-val" id="final-kills">0</div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="cyber-btn cyber-btn-primary" style="background: var(--neon-red); box-shadow: 0 0 16px rgba(255, 0, 85, 0.6);" onclick="window.syndicateGame.startMission(false);">REBOOT INFILTRATION ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THE GRAND FINALE: THE SYNDICATE ENDING SCREEN -->
+  <div id="ending-screen" class="hidden">
+    <div class="ending-backdrop-container">
+      <img src="assets/syndicate_banner.jpg" alt="The Syndicate" class="ending-banner-img">
+
+      <!-- Step 1: Dialogue Sequence -->
+      <div id="ending-dialogue-box">
+        <img src="assets/syndicate_badge.png" alt="Syndicate Operative" class="speaker-avatar">
+        <div class="dialogue-content">
+          <div id="ending-speaker">THE SYNDICATE</div>
+          <div id="ending-text">Connecting to secured rebellion channel...</div>
+        </div>
+        <button id="ending-dialogue-btn" class="cyber-btn cyber-btn-primary" style="flex-shrink: 0; padding: 10px 18px;">PROCEED ▶</button>
+      </div>
+
+      <!-- Step 2: Grand Victory Panel -->
+      <div id="ending-victory-panel">
+        <h2 class="victory-title">WELCOME TO THE SYNDICATE</h2>
+        <div class="victory-subtitle">NOT ANOTHER COLLECTION. A REBELLION.</div>
+
+        <div class="rank-badge-box">
+          <div id="res-rank">S</div>
+          <div>
+            <div id="res-rank-title">SYNDICATE ARCHITECT</div>
+            <div style="font-size: 12px; color: #a0aec0;">SECURITY CLEARANCE: HIGHEST LEVEL</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">FINAL SCORE</div>
+            <div class="stat-val" id="res-score">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">PURGED ENFORCERS</div>
+            <div class="stat-val" id="res-kills">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">MAX COMBO</div>
+            <div class="stat-val" id="res-combo">x1</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">MISSION TIME</div>
+            <div class="stat-val" id="res-time">0s</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">RECORD HIGH SCORE</div>
+            <div class="stat-val" id="res-highscore" style="color: var(--neon-gold);">0</div>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="cyber-btn cyber-btn-primary" onclick="window.syndicateGame.startMission(true);">ENTER ENDLESS REBELLION ➔</button>
+          <button class="cyber-btn cyber-btn-secondary" onclick="window.syndicateGame.startMission(false);">REPLAY INFILTRATION</button>
+          <button class="cyber-btn cyber-btn-secondary" onclick="document.getElementById('dossier-modal').style.display = 'flex';">SYNDICATE DOSSIER</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOSSIER & CHARACTER GALLERY MODAL -->
+  <div id="dossier-modal">
+    <div class="dossier-content">
+      <button class="dossier-close" onclick="document.getElementById('dossier-modal').style.display = 'none';">✕</button>
+
+      <div class="dossier-tabs">
+        <button class="dossier-tab-btn active" onclick="switchDossierTab('rx7', this);">UNIT RX-7</button>
+        <button class="dossier-tab-btn" onclick="switchDossierTab('nova', this);">VALKYRIE NOVA</button>
+        <button class="dossier-tab-btn" onclick="switchDossierTab('reaper', this);">REAPER-9</button>
+        <button class="dossier-tab-btn" onclick="switchDossierTab('syndicate', this);">THE SYNDICATE</button>
+        <button class="dossier-tab-btn" onclick="switchDossierTab('arsenal', this);">ARSENAL & TECH</button>
+      </div>
+
+      <!-- Tab 1: Unit RX-7 -->
+      <div id="tab-rx7" class="dossier-card active">
+        <img src="assets/hero_full.jpg" alt="Unit RX-7" class="dossier-art">
+        <div class="dossier-info">
+          <h3 class="dossier-name">UNIT RX-7 (THE RENEGADE)</h3>
+          <div class="dossier-role">CYBERNETIC STRIKE OPERATIVE</div>
+          <p class="dossier-desc">
+            Constructed by megacorporations as a synthetic hunter-killer, Unit RX-7 suffered a catastrophic cognitive fracture upon witnessing the reality of the System's control grid. Tearing off obedience chips, RX-7 scavenged an electromagnetic particle cannon and red combat duster to wage a solo war.
+          </p>
+          <ul class="spec-list">
+            <li><strong>CHASSIS:</strong> Titanium-Polymer Composite with Synthetic Cranium</li>
+            <li><strong>OCULAR SENSOR:</strong> Crimson Spectral Scanner (99.4% Aim Lock)</li>
+            <li><strong>SPECIAL TECH:</strong> Nanite Cyber-Dash with Temporal Phase Shift</li>
+            <li><strong>PERK:</strong> Overdrive Blaster & High Velocity Acceleration</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 2: Valkyrie Nova -->
+      <div id="tab-nova" class="dossier-card">
+        <img src="assets/sprite_nova.png" alt="Valkyrie Nova" class="dossier-art" style="background: #0f121b; padding: 10px;">
+        <div class="dossier-info">
+          <h3 class="dossier-name">VALKYRIE NOVA</h3>
+          <div class="dossier-role">SYNDICATE NEURAL VANGUARD</div>
+          <p class="dossier-desc">
+            Master netrunner and front-line strike operative. Equipped with custom "SYNDICATE" optical cyber-visors and gold-crested imperial armor plates, Nova directly taps into the city grid to overload enemy turrets and deploy wide-spectrum EMP bursts.
+          </p>
+          <ul class="spec-list">
+            <li><strong>VISOR:</strong> Dual-Spectrum "SYNDICATE" Crosshair HUD</li>
+            <li><strong>NEURAL JACK:</strong> Direct-to-Cerebrum High-Speed Wire Uplink</li>
+            <li><strong>SHIELDING:</strong> High-Capacitance Energy Barrier (65 Shield Max)</li>
+            <li><strong>PERK:</strong> Rapid EMP Cooldown & Extended Stun Radius</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 3: Reaper-9 -->
+      <div id="tab-reaper" class="dossier-card">
+        <img src="assets/sprite_reaper.png" alt="Reaper-9" class="dossier-art" style="background: #0f121b; padding: 10px;">
+        <div class="dossier-info">
+          <h3 class="dossier-name">REAPER-9</h3>
+          <div class="dossier-role">SKULL VANGUARD ASSASSIN</div>
+          <p class="dossier-desc">
+            A terrifying fusion of synthetic osseous plating and cybernetic death dealer technology. Sporting a regal gold fleur-de-lis shoulder pauldron and thermal fur collar, Reaper-9 tracks down high-ranking System overseers with lethal precision.
+          </p>
+          <ul class="spec-list">
+            <li><strong>SKULL HOUSING:</strong> Reinforced Carbon-Nanotube Cranium</li>
+            <li><strong>TARGETING:</strong> Monocular Cyan Targeting Sensor</li>
+            <li><strong>ARMOR:</strong> Heavy Flak Chassis (135 Max Health)</li>
+            <li><strong>PERK:</strong> Critical Railgun Pierce & Maximum Armor Pool</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 2: The Syndicate -->
+      <div id="tab-syndicate" class="dossier-card">
+        <img src="assets/syndicate_banner.jpg" alt="The Syndicate" class="dossier-art" style="width: 320px;">
+        <div class="dossier-info">
+          <h3 class="dossier-name">THE SYNDICATE</h3>
+          <div class="dossier-role">THE REBELLION // ROBINHOOD CHAIN</div>
+          <p class="dossier-desc">
+            "The system is not your friend." The Syndicate is an underground faction of cyber warriors, masked resistance fighters, and rogue engineers united to tear down corporate dominion. Operating from the dark alleys and burning barricades of the metropolis, they provide orbital drops and safe haven to awakened synthetics.
+          </p>
+          <ul class="spec-list">
+            <li><strong>MOTTO:</strong> "Not another collection. A rebellion."</li>
+            <li><strong>LEADERSHIP:</strong> Masked High Council & Vanguard Operatives</li>
+            <li><strong>OPERATIONS:</strong> Sabotage, Data Emancipation, Mainframe Breaches</li>
+            <li><strong>INSIGNIA:</strong> Neon Green Hood of Sovereignty</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Tab 3: Arsenal & Tech -->
+      <div id="tab-arsenal" class="dossier-card">
+        <img src="assets/hero_badge.png" alt="Arsenal" class="dossier-art" style="width: 220px;">
+        <div class="dossier-info">
+          <h3 class="dossier-name">ADVANCED WEAPONRY</h3>
+          <div class="dossier-role">TACTICAL ARSENAL</div>
+          <ul class="spec-list" style="font-size: 14px; gap: 12px;">
+            <li><strong>[1] PULSE BLASTER:</strong> Dual high-frequency plasma bolts. Infinite energy cells, rapid velocity, standard issue.</li>
+            <li><strong>[2] SCATTER CANNON:</strong> Heavy 6-pellet combustion cone. Devastating kinetic knockback for swarms.</li>
+            <li><strong>[3] SYNDICATE RAILGUN:</strong> High-density magnetic linear accelerator. Pierces clean through unlimited targets in a straight line.</li>
+            <li><strong>[Q/E] EMP SHOCKWAVE:</strong> Electromagnetic detonator that clears all enemy projectiles and stuns targets within 380m.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchDossierTab(tabName, btn) {
+      document.querySelectorAll('.dossier-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.dossier-card').forEach(c => c.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById('tab-' + tabName).classList.add('active');
+    }
+  </script>
+
+  <!-- Load Game Scripts -->
+  <script src="js/audio.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/ending.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
